@@ -117,7 +117,11 @@ class Word2Vec():
                 self.tree = GeneralTree(self.hparas, self.word_dict,
                                         list(self.word_dict.keys()),
                                         list(self.user_dict.keys()),
-                                        user_item_matrix)
+                                        user_item_matrix,
+                                        self.word_mapper, self.inv_word_mapper,
+                                        self.user_mapper, self.inv_user_mapper,
+                                        )
+
              
         print("Tree has been built, start to training...")
 
