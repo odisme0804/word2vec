@@ -19,6 +19,10 @@ class Word2Vec():
         self.user_dict = None
         self.word_dict = None  # each element is a dict, including: freq, vector, path
         self.tree = None    # the object of HuffmanTree
+        self.user_mapper = None
+        self.word_mapper = None
+        self.inv_user_mapper = None
+        self.inv_word_mapper = None
 
     def initial_word_dict(self, word_freq):
         # the input is dict[word] = freq , output is dict[word] = {freq:"", vector:"", path:""}
@@ -36,6 +40,12 @@ class Word2Vec():
             word_dict[word] = temp_dict
 
         self.word_dict = word_dict
+        
+        self.word_mapper = {}
+        self.inv_word_mapper = {}
+        for i, word in enumerate(self.word_dict):
+            self.word_mapper[word] = i
+            self.inv_word_mapper[i] = word
 
     def initial_user_dict(self, user_list):
         # the input is dict[word] = fred , output is dict[word] = {freq:"", vector:"", path:""}
@@ -47,6 +57,12 @@ class Word2Vec():
             user_dict[uid] = np.random.random([1,self.hparas.embedding_dim])
 
         self.user_dict = user_dict
+        
+        self.user_mapper = {}
+        self.inv_user_mapper = {}
+        for i, user in enumerate(self.user_dict):
+            self.user_mapper[user] = i
+            self.inv_user_mapper[i] = user
 
     def train(self, train_dict):
         # train_dict : Dict[user] = [(context, current, after), ()]
