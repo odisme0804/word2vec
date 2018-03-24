@@ -6,6 +6,7 @@ from math import *
 import progressbar
 import time
 import multiprocessing as mpc
+from operator import itemgetter
 
 def get_default_hparas():
     class hparas():
@@ -31,7 +32,7 @@ def get_default_hparas():
     return hparas
 
 class GeneralTreeNode():
-    def __init__(self, value, freq, group=[]):
+    def __init__(self, value, freq, set_key=-1):
         # common part of leaf node and tree node
         self.freq = freq
         self.left = None  # 
@@ -40,7 +41,7 @@ class GeneralTreeNode():
         # mid vector in tree node
         self.value = value # the value of word 
         self.path = "" # store the path or huffman code
-        self.word_list = group
+        self.set_key = set_key
 
     def __str__(self):
         return 'TreeNode object, value: {v}, freq: {f}, path: {p}'\
@@ -75,7 +76,7 @@ class GeneralTree():
             self.generate_huffman_code(self.root, word_dict)
         elif self.hparas.tree_type == "simularity":
             self.cal_distance_matrix(user_item_matrix)
-            node_list = [GeneralTreeNode(key, value['freq'], [self.word_mapper[key]]) for key, value in word_dict.items()]
+            node_list = [GeneralTreeNode(key, value['freq'], self.word_mapper[key]) for key, value in word_dict.items()]
             self.build_simularity_tree(node_list)
             self.generate_huffman_code(self.root, word_dict)
 
@@ -163,7 +164,6 @@ class GeneralTree():
             self.dist_matrix[k] = v
 
         self.display_dist_matrix()
-        print("build tree ... ")
 
     def word_simus(self, i, total, fun, return_dict):
         for idx in range( len(self.word_mapper) * i//total, len(self.word_mapper)*(i+1)//total):
@@ -174,73 +174,125 @@ class GeneralTree():
             return_dict[idx] = ret[:]
 
     def build_simularity_tree(self, node_list):
+        word_set = [ x for x in range(0, len(self.dist_matrix))]
+        dist_node_pair = []
+        for i in range(0, len(self.dist_matrix)):
+            for j in range(i+1, len(self.dist_matrix)):
+                dist_node_pair.append( [self.dist_matrix[i][j], i, j] )
+        #dist_node_pair.sort(key=itemgetter(0), reverse=True)
+        dist_node_pair.sort(key=lambda tup: (-tup[0],tup[1],tup[2]))
+
+        #print("before")
+        #for d,i,j in dist_node_pair:
+        #    print(d,i,j)
+        
+        merge_pair = []
+        for idx, val in enumerate(dist_node_pair):
+            d,i,j = val
+            temp = i
+            while word_set[temp] != temp:
+                word_set[temp] = word_set[word_set[temp]]
+                temp = word_set[temp]
+            i = temp
+            temp = j
+            while word_set[temp] != temp:
+                word_set[temp] = word_set[word_set[temp]]
+                temp = word_set[temp]
+            j = temp
+            if i != j:
+                if i > j:
+                    i,j = j,i
+                merge_pair.append((i,j,d))
+                if len(merge_pair) >= len(word_set) - 1:
+                    break
+
+            word_set[j] = i
+            dist_node_pair[idx] = [d,i,j]
+
+        #merge_pair.sort(key=lambda tup: (-tup[2],tup[0],tup[1]))
+
+        
+        modify_pair = []
+        last_sim = merge_pair[0][2]
+        nodes = set([merge_pair[0][0], merge_pair[0][1]])
+        for idx in range(1,len(merge_pair)):
+            i,j,d = merge_pair[idx]
+            if d != last_sim or (idx == len(merge_pair) - 1) or (i not in nodes and j not in nodes):
+                if d == last_sim and idx == len(merge_pair) - 1:
+                    nodes.add(i)
+                    nodes.add(j) 
+                n_list = list(nodes)
+                n_list.sort()
+                if len(n_list) == 2:
+                    modify_pair.append((n_list[0], n_list[1], last_sim)) 
+                elif len(n_list) == 3:
+                    modify_pair.append((n_list[0], n_list[1], last_sim)) 
+                    modify_pair.append((n_list[0], n_list[2], last_sim)) 
+                else:
+                    #if len(n_list) % 2 == 1:
+                    #    n_list = n_list[:-1] + n_list[-3:-2] + n_list[-1:]
+                    #for k in range(0, len(n_list), 2):
+                    #    modify_pair.append((n_list[k], n_list[k+1], last_sim))
+                    while len(n_list) > 1:
+                        r, s = n_list[0:2]
+                        if r > s:
+                            r,s = s,r
+                        modify_pair.append((r, s, last_sim))
+                        #n_list.pop(0)
+                        #n_list.pop(0)
+                        n_list = n_list[2:]
+                        n_list.append(min(r,s)) 
+
+                # clean for next
+
+                if d != last_sim and (idx == len(merge_pair) - 1):
+                    modify_pair.append((i,j,d))
+
+                nodes.clear()
+                last_sim = d
+                nodes.add(i)
+                nodes.add(j)
+            else:
+                nodes.add(i)
+                nodes.add(j)
+
+        print("lens:", len(merge_pair), len(modify_pair)) 
+        with open('m1.txt', 'w') as the_file:
+            for i,j,d in merge_pair:
+                the_file.write(str(d)+"\t"+str(i)+"\t"+str(j)+"\n")
+                #print(d,i,j)
+        print("")
+        with open('m2.txt', 'w') as the_file:
+            for i,j,d in modify_pair:
+                the_file.write(str(d)+"\t"+str(i)+"\t"+str(j)+"\n")
+                #print(d,i,j)
+        
+        #print("after:")
+        #for i,j in merge_pair:
+        #    print(i,j)
+ 
+        node_dict = {}
+        for node in node_list:
+            node_dict[node.set_key] = node
+        
+        print("build tree ... ")
+
         treebar = progressbar.ProgressBar(widgets=[progressbar.Percentage(),progressbar.Bar()],maxval=node_list.__len__()).start()
         merge_cnt = 0
-        while node_list.__len__()>1:
+        while node_dict.__len__()>1:
             merge_cnt += 1
             treebar.update(merge_cnt)
-            # find largest simularity pos
-            wid1 = None
-            wid2 = None
-            sid1 = None
-            sid2 = None
-            max_sim = -999999999999
-            for i1 in range(0,node_list.__len__()):
-                #print( node_list[i1].word_list[0])
-                word1 = node_list[i1].word_list[0]
-                for i2 in range(i1 + 1,node_list.__len__()):
-                    word2 = node_list[i2].word_list[0]
 
-                    if i1 == i2:
-                        continue
+            nid1, nid2, _ = modify_pair.pop(0)
 
-                    if word1 == word2:
-                        print("error in build sim tree")
-                        continue
+            top_node = self.merge_by_sim(node_dict[nid1],node_dict[nid2])
 
-                    if max_sim < self.dist_matrix[word1][word2]:
-                        max_sim = self.dist_matrix[word1][word2]
-                        wid1, wid2 = word1, word2
-                        sid1, sid2 = i1, i2
-                        #print(sid1, sid2)
-                    elif max_sim == self.dist_matrix[word1][word2]:
-                        max_sim = self.dist_matrix[word1][word2]
-                        wid1, wid2 = word1, word2
-                        sid1, sid2 = i1, i2
-                        #print(sid1, sid2)
+            node_dict.pop(nid1, None)
+            node_dict.pop(nid2, None)
+            node_dict[top_node.set_key] = top_node
 
-            top_node = self.merge_by_sim(node_list[sid1],node_list[sid2])
-
-            # update dist matrix
-            if set(node_list[sid1].word_list) & set(node_list[sid2].word_list):
-                print("merge error")
-
-            new_dist = []
-            wid_list = node_list[sid1].word_list + node_list[sid2].word_list 
-            dist_mat = self.dist_matrix[ wid_list ]
-
-            if self.hparas.simu_metric == "min":
-                dist_mat = np.minimum.reduce(dist_mat) 
-            elif self.hparas.simu_metric == "max":
-                dist_mat = np.maximum.reduce(dist_mat)
-
-            self.dist_matrix[ wid_list ] = dist_mat
-            self.dist_matrix.T[ wid_list ] = dist_mat
-
-
-
-            # update node list
-            if sid1<sid2:
-                node_list.pop(sid2)
-                node_list.pop(sid1)
-            elif sid1>sid2:
-                node_list.pop(sid1)
-                node_list.pop(sid2)
-            else:
-                raise RuntimeError('sid1 should not be equal to sid2')
-            node_list.insert(0,top_node)
         treebar.finish()
-        self.root = node_list[0]   
+        self.root = node_dict[0]   
 
     def build_huffman_tree(self, node_list):
         while node_list.__len__()>1:
@@ -283,7 +335,8 @@ class GeneralTree():
         # self.generate_huffman_code(node.right, word_dict)
 
         # use stack but not recursion in this edition
-
+        total = 0
+        count = 0
         stack = [self.root]
         while (stack.__len__()>0):
             node = stack.pop()
@@ -298,6 +351,11 @@ class GeneralTree():
             path = node.path
             # print(word,'\t',code.__len__(),'\t',node.possibility)
             word_dict[word]['path'] = path
+            if not node.left and not  node.right: # leaf
+                print(word, path)
+                total += len(path)
+                count += 1
+        print("avg len:", total/count)
 
     def merge_by_freq(self,node1,node2):
         top_pos = node1.freq + node2.freq
@@ -313,7 +371,7 @@ class GeneralTree():
 
     def merge_by_sim(self,node1,node2):
         top_pos = node1.freq + node2.freq
-        top_node = GeneralTreeNode(np.zeros([1,self.hparas.embedding_dim]), top_pos, node1.word_list + node2.word_list)
+        top_node = GeneralTreeNode(np.zeros([1,self.hparas.embedding_dim]), top_pos, min(node1.set_key, node2.set_key))
         if node1.freq >= node2.freq :
             top_node.left = node1
             top_node.right = node2

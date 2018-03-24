@@ -298,7 +298,7 @@ class Word2Vec():
 
         poi_score = {} 
         for poi in candidate_poi:
-            poi_score[poi] = sum_pu_score[poi] + sum_pc_score[poi]
+            poi_score[poi] = A * sum_pu_score[poi] + B * sum_pc_score[poi]
         
         scores = list(sorted(poi_score, key=poi_score.__getitem__, reverse=True))
     

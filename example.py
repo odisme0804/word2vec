@@ -60,8 +60,9 @@ poi_info = poi_loader(file_path + file_prefix + "_PoiInfo.txt")
 print('w2v start...')
 hparas = get_default_hparas()
 hparas.tree_type = tree_type = "simularity"
-hparas.simu_func = "mht"
+hparas.simu_func = "cos"
 hparas.simu_metric = "max"
+hparas.max_process = 20
 
 w2v_model = Word2Vec(hparas)
 w2v_model.initial_word_dict(all_pois_freq_dict)
@@ -90,6 +91,73 @@ case_count = 0
 item_count = 0
 match_count = 0
 
+
+total_query = len(test_successive_behavior)
+current_count = 0
+pgbar = progressbar.ProgressBar(widgets=[progressbar.Percentage(),progressbar.Bar()],maxval=total_query).start()
+
+
+for user in test_successive_behavior:
+    for query in test_successive_behavior[user]:
+        bef, cur, aft = query
+        if len(set(aft) - user_visit[user]) == 0:
+            continue
+        top_k = w2v_model.get_top_k(user, query, poi_info)
+        case_count += 1
+        item_count += len(aft)
+        match_count += len(set(aft) & set(top_k))
+           
+    time.sleep(0.001)
+    current_count += 1
+    pgbar.update(current_count)
+
+pgbar.finish()
+time.sleep(1)
+
+pre = match_count / float(case_count * 10)
+rec = match_count / float(item_count)
+
+print('Precision a @ ' + str(10) + ' : ' + str(pre))
+print('Recall a @ ' + str(10) + ' : ' + str(rec))
+
+
+# iter + 20
+w2v.model.hparas.max_iter = 20
+w2v_model.train_all(successive_behavior, nosuccessive_behavior, user_checked_freq)
+
+total_query = len(test_successive_behavior)
+current_count = 0
+pgbar = progressbar.ProgressBar(widgets=[progressbar.Percentage(),progressbar.Bar()],maxval=total_query).start()
+
+
+for user in test_successive_behavior:
+    for query in test_successive_behavior[user]:
+        bef, cur, aft = query
+        if len(set(aft) - user_visit[user]) == 0:
+            continue
+        top_k = w2v_model.get_top_k(user, query, poi_info)
+        case_count += 1
+        item_count += len(aft)
+        match_count += len(set(aft) & set(top_k))
+           
+    time.sleep(0.001)
+    current_count += 1
+    pgbar.update(current_count)
+
+pgbar.finish()
+time.sleep(1)
+
+pre = match_count / float(case_count * 10)
+rec = match_count / float(item_count)
+
+print('Precision a @ ' + str(10) + ' : ' + str(pre))
+print('Recall a @ ' + str(10) + ' : ' + str(rec))
+
+
+
+# iter + 20
+w2v.model.hparas.max_iter = 20
+w2v_model.train_all(successive_behavior, nosuccessive_behavior, user_checked_freq)
 
 total_query = len(test_successive_behavior)
 current_count = 0
