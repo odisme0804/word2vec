@@ -24,10 +24,11 @@ def get_default_hparas():
     hparas.model = "cbow"
     hparas.decay = 1
     hparas.inverse = 1
+    hparas.merge_bound = 0.8
     # for simularity
     hparas.max_process = 10
-    hparas.simu_metric = None # [min, max, avg]
-    hparas.simu_func = None # [cos, jaccard]
+    hparas.simu_metric = "max" # [min, max, avg]
+    hparas.simu_func = "cos" # [cos, jaccard]
 
     return hparas
 
@@ -73,6 +74,10 @@ class GeneralTree():
         if self.hparas.tree_type == "huffman":
             node_list = [GeneralTreeNode(key, value['freq']) for key, value in word_dict.items()]
             self.build_huffman_tree(node_list)
+            self.generate_huffman_code(self.root, word_dict)
+        elif self.hparas.tree_type == "balance":
+            node_list = [GeneralTreeNode(key, value['freq']) for key, value in word_dict.items()]
+            self.build_balance_tree(node_list)
             self.generate_huffman_code(self.root, word_dict)
         elif self.hparas.tree_type == "simularity":
             self.cal_distance_matrix(user_item_matrix)
@@ -163,6 +168,9 @@ class GeneralTree():
             #print(k,v)
             self.dist_matrix[k] = v
 
+        # normalize dist matrix
+        temp_mat = self.dist_matrix / abs(float(self.dist_matrix.max()))
+        self.dist_matrix = temp_mat
         self.display_dist_matrix()
 
     def word_simus(self, i, total, fun, return_dict):
@@ -182,10 +190,6 @@ class GeneralTree():
         #dist_node_pair.sort(key=itemgetter(0), reverse=True)
         dist_node_pair.sort(key=lambda tup: (-tup[0],tup[1],tup[2]))
 
-        #print("before")
-        #for d,i,j in dist_node_pair:
-        #    print(d,i,j)
-        
         merge_pair = []
         for idx, val in enumerate(dist_node_pair):
             d,i,j = val
@@ -229,17 +233,11 @@ class GeneralTree():
                     modify_pair.append((n_list[0], n_list[1], last_sim)) 
                     modify_pair.append((n_list[0], n_list[2], last_sim)) 
                 else:
-                    #if len(n_list) % 2 == 1:
-                    #    n_list = n_list[:-1] + n_list[-3:-2] + n_list[-1:]
-                    #for k in range(0, len(n_list), 2):
-                    #    modify_pair.append((n_list[k], n_list[k+1], last_sim))
                     while len(n_list) > 1:
                         r, s = n_list[0:2]
                         if r > s:
                             r,s = s,r
                         modify_pair.append((r, s, last_sim))
-                        #n_list.pop(0)
-                        #n_list.pop(0)
                         n_list = n_list[2:]
                         n_list.append(min(r,s)) 
 
@@ -248,6 +246,7 @@ class GeneralTree():
                 if d != last_sim and (idx == len(merge_pair) - 1):
                     modify_pair.append((i,j,d))
 
+                # clean for next
                 nodes.clear()
                 last_sim = d
                 nodes.add(i)
@@ -267,9 +266,6 @@ class GeneralTree():
                 the_file.write(str(d)+"\t"+str(i)+"\t"+str(j)+"\n")
                 #print(d,i,j)
         
-        #print("after:")
-        #for i,j in merge_pair:
-        #    print(i,j)
  
         node_dict = {}
         for node in node_list:
@@ -283,7 +279,9 @@ class GeneralTree():
             merge_cnt += 1
             treebar.update(merge_cnt)
 
-            nid1, nid2, _ = modify_pair.pop(0)
+            nid1, nid2, distance = modify_pair.pop(0)
+            if distance < self.hparas.merge_bound:
+                break
 
             top_node = self.merge_by_sim(node_dict[nid1],node_dict[nid2])
 
@@ -292,7 +290,13 @@ class GeneralTree():
             node_dict[top_node.set_key] = top_node
 
         treebar.finish()
-        self.root = node_dict[0]   
+        # merge by freq 
+        node_list = []
+        for key, value in node_dict.items():
+            node_list.append(value)
+
+        self.build_huffman_tree(node_list)
+        #self.root = node_dict[0]   
 
     def build_huffman_tree(self, node_list):
         while node_list.__len__()>1:
@@ -317,6 +321,18 @@ class GeneralTree():
             node_list.insert(0,top_node)
         self.root = node_list[0]
 
+    def build_balance_tree(self, node_list):
+        while node_list.__len__()>1:
+            i1 = 0
+            i2 = 1
+            top_node = self.merge_by_freq(node_list[i1],node_list[i2])
+            
+            node_list.pop(0)
+            node_list.pop(0)
+            node_list.append(top_node)
+
+        self.root = node_list[0]
+
     def generate_huffman_code(self, node, word_dict):
         # # use recursion in this edition
         # if node.left==None and node.right==None :
@@ -335,7 +351,7 @@ class GeneralTree():
         # self.generate_huffman_code(node.right, word_dict)
 
         # use stack but not recursion in this edition
-        total = 0
+        total = 0.0
         count = 0
         stack = [self.root]
         while (stack.__len__()>0):
@@ -352,7 +368,7 @@ class GeneralTree():
             # print(word,'\t',code.__len__(),'\t',node.possibility)
             word_dict[word]['path'] = path
             if not node.left and not  node.right: # leaf
-                print(word, path)
+                #print(word, path)
                 total += len(path)
                 count += 1
         print("avg len:", total/count)
@@ -392,7 +408,7 @@ class GeneralTree():
         print("")
         """
         print(self.dist_matrix)
-        print(self.word_mapper)
+        #print(self.word_mapper)
 
     def cal_sim(self, v1, v2):
         if self.hparas.simu_func == "cos":
@@ -415,7 +431,7 @@ class GeneralTree():
 
     def cal_sim_test(self, v1, v2, fun):
         if fun == "cos":
-            return (np.inner(v1,v2)/(norm(v1)*norm(v2))) if norm(v1)*norm(v2) > 0 else -1
+            return (np.inner(v1,v2)/(norm(v1)*norm(v2))) if norm(v1)*norm(v2) > 0 else 0
         elif fun == "mht":
             return -1 * np.sum(np.absolute(v1 - v2))
             #sum(abs(a-b) for a,b in zip(v1, v2))

@@ -100,7 +100,7 @@ class Word2Vec():
                 current_count += 1
                 pgbar.update(current_count)
         pgbar.finish()
-        time.sleep(0.001)
+        time.sleep(0.1)
         print('word vector has been generated')
 
 
@@ -112,6 +112,8 @@ class Word2Vec():
             raise ValueError('Need initial user_dict')
         if self.tree == None:
             if self.hparas.tree_type == "huffman":
+                self.tree = GeneralTree(self.hparas, self.word_dict)
+            elif self.hparas.tree_type == "balance":
                 self.tree = GeneralTree(self.hparas, self.word_dict)
             elif self.hparas.tree_type == "simularity":
                 self.tree = GeneralTree(self.hparas, self.word_dict,

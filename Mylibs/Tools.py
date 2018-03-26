@@ -1359,8 +1359,71 @@ def gen_successive_behavior(data_list,ts):
                     successive_dict[u].append((before,p1,after))
     
     return nosuccessive_dict, successive_dict
+
+def gen_testing(tr_list, te_list, successive_time_constrain, alluser_checked_freq):
+    # user visited in train list
+    user_visit = {}
+    for user in list(alluser_checked_freq.keys()):
+        user_visit[user] = set()
+    for uid, lid, _, _ in tr_list:
+        user_visit[uid].add(lid)
+        
+
+    nosuccessive_dict = {}
+    successive_dict = {}
+    user_record = listtodict(te_list, 0)
+    for u in user_record.keys():
+
+        if len(user_record[u]) == 1:
+            if u not in nosuccessive_dict:
+                nosuccessive_dict[u] = []
+            (p1, d1, t1) = user_record[u][0]
+            nosuccessive_dict[u].append(p1)
+
+        if len(user_record[u]) > 1:
+            for q in range(len(user_record[u])):
+            
+                (p1, d1, t1) = user_record[u][q]  
+
+                j = q+1  
+                after = []  
                 
-def gen_sequence_split_by_existt_context(data_list,ts):
+                for k in range(j, len(user_record[u])):
+                    (p2, d2, t2) = user_record[u][k]
+                    if abs(timediff(d1, t1, d2, t2)) / float(3600) <= successive_time_constrain:
+                        after.append(p2)
+                    else:
+                        break
+                
+                
+                j = q
+                before = []
+                
+                for k in range(0, j):
+                    (p0, d0, t0) = user_record[u][k]
+                    if abs(timediff(d0, t0, d1, t1)) / float(3600) <= successive_time_constrain:
+                        before.append(p0)
+                    else:
+                        break
+                
+                if len(after) == 0 and len(before) == 0:   
+                    if u not in nosuccessive_dict:
+                        nosuccessive_dict[u] = []
+                    nosuccessive_dict[u].append(p1)
+                else:
+                    gd = set(after) - set(user_visit[u])
+                    if len(gd) == 0:
+                        continue
+                    if u not in successive_dict:
+                        successive_dict[u] = []
+                    successive_dict[u].append((before,p1,list(gd)))
+                    
+                    
+                    #user_visit[u] |= set(after)
+    
+    return successive_dict
+ 
+def gen_sequence_split_by_exist_context(data_list,ts):
 
     nosuccessive_dict = {}
     successive_dict = {}
