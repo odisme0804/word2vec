@@ -11,6 +11,7 @@ from operator import itemgetter
 def get_default_hparas():
     class hparas():
         pass
+    hparas.embedding_path = "./embedding/"
     hparas.successive_time_constrain = 6
     hparas.precision = 20
     hparas.top_N = 10

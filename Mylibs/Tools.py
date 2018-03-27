@@ -1473,6 +1473,68 @@ def gen_sequence_split_by_exist_context(data_list,ts):
     
     return nosuccessive_dict, successive_dict
             
+def gen_training_sequence(data_list,ts, word_mapper, user_mapper):
+
+    nosuccessive_dict = {}
+    successive_dict = {}
+    user_record = listtodict(data_list, 0)
+    for u in user_record.keys():
+
+        if len(user_record[u]) == 1:
+            if u not in nosuccessive_dict:
+                nosuccessive_dict[u] = []
+            (p1, d1, t1) = user_record[u][0]
+            nosuccessive_dict[u].append(([],p1,[]))
+
+
+        if len(user_record[u]) > 1:
+            for q in range(len(user_record[u])):
+                (p1, d1, t1) = user_record[u][q]
+
+                j = q+1
+                after = []
+
+                for k in range(j, len(user_record[u])):
+                    (p2, d2, t2) = user_record[u][k]
+                    if abs(timediff(d1, t1, d2, t2)) / float(3600) <= ts:
+                        after.append(p2)
+                    else:
+                        break
+
+                j = q
+                before = []
+
+                for k in range(0, j):
+                    (p0, d0, t0) = user_record[u][k]
+                    if abs(timediff(d0, t0, d1, t1)) / float(3600) <= ts:
+                        before.append(p0)
+                    else:
+                        break
+
+                if len(before) == 0:  # no context
+                    if u not in nosuccessive_dict:
+                        nosuccessive_dict[u] = []
+                    nosuccessive_dict[u].append((before,p1,after))
+                else:
+                    if u not in successive_dict:
+                        successive_dict[u] = []
+                    cktime = datetime.datetime.strptime(d1+" "+t1, "%Y-%m-%d %H:%M:%S")
+                    successive_dict[u].append((before,p1,after,cktime))
+
+    training_seq = []
+    for u in successive_dict:
+        for bef, cur, aft, ckt in successive_dict[u]:
+            context = [word_mapper[poi] + 1 for poi in bef]
+            if len(context) > 3:
+                context = context[-3:]
+            while len(context) < 3:
+                context = [0] + context
+            fut = word_mapper[cur] + 1
+            usr = user_mapper[u] + 1
+            con = np.array(context)
+            training_seq.append((usr, ckt, con, fut))
+
+    return training_seq
 
 def gen_behavior(data_list,ts):   
     

@@ -304,4 +304,26 @@ class Word2Vec():
         
         scores = list(sorted(poi_score, key=poi_score.__getitem__, reverse=True))
     
-        return scores[:K] 
+        return scores[:K]
+
+    def save_embedding(self):
+        np.save(self.hparas.embedding_path + 'word_vector.npy', self.word_dict)
+        np.save(self.hparas.embedding_path + 'user_vector.npy', self.user_dict)
+        np.save(self.hparas.embedding_path + 'word_mapper.npy', self.word_mapper)
+        np.save(self.hparas.embedding_path + 'user_mapper.npy', self.user_mapper)
+
+    def load_embedding(self):
+        self.word_dict = np.load(self.hparas.embedding_path + 'word_vector.npy').item()
+        self.user_dict = np.load(self.hparas.embedding_path + 'user_vector.npy').item()
+        self.word_mapper = np.load(self.hparas.embedding_path + 'word_mapper.npy').item()
+        self.user_mapper = np.load(self.hparas.embedding_path + 'user_mapper.npy').item()
+
+    def get_embedding_matrix(self):
+        word_mat = np.zeros([len(self.word_dict) + 1, self.hparas.embedding_dim])
+        user_mat = np.zeros([len(self.user_dict) + 1, self.hparas.embedding_dim])
+        for k,v in self.word_dict.items():
+            word_mat[ self.word_mapper[k] + 1] = v
+        for k,v in self.user_dict.items():
+            user_mat[ self.user_mapper[k] + 1] = v
+        return word_mat, user_mat
+
