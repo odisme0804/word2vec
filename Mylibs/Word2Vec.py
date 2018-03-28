@@ -23,6 +23,7 @@ class Word2Vec():
         self.word_mapper = None
         self.inv_user_mapper = None
         self.inv_word_mapper = None
+        self.condidate_dict = {}
 
     def initial_word_dict(self, word_freq):
         # the input is dict[word] = freq , output is dict[word] = {freq:"", vector:"", path:""}
@@ -265,7 +266,11 @@ class Word2Vec():
 
     def get_top_k(self, user, query, poi_info, K=10, A=1, B=1):
         before, current, after = query
-        candidate_poi = dist_filter(current, poi_info, 10)
+        if current in self.condidate_dict:
+            candidate_poi = self.condidate_dict[current]
+        else:
+            candidate_poi = dist_filter(current, poi_info, 10)
+            self.condidate_dict[current] = candidate_poi[:]
         
         con_list = []
         for poi in before:
@@ -319,11 +324,11 @@ class Word2Vec():
         self.user_mapper = np.load(self.hparas.embedding_path + 'user_mapper.npy').item()
 
     def get_embedding_matrix(self):
-        word_mat = np.zeros([len(self.word_dict) + 1, self.hparas.embedding_dim])
-        user_mat = np.zeros([len(self.user_dict) + 1, self.hparas.embedding_dim])
+        word_mat = np.zeros([len(self.word_dict), self.hparas.embedding_dim])
+        user_mat = np.zeros([len(self.user_dict), self.hparas.embedding_dim])
         for k,v in self.word_dict.items():
-            word_mat[ self.word_mapper[k] + 1] = v
+            word_mat[ self.word_mapper[k]] = v
         for k,v in self.user_dict.items():
-            user_mat[ self.user_mapper[k] + 1] = v
+            user_mat[ self.user_mapper[k]] = v
         return word_mat, user_mat
 
