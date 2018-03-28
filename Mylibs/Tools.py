@@ -1555,12 +1555,7 @@ def save_training_sequence(filepath, dataset, ts, file_type, data_list):
             bef, cur, aft, ckt = item
             bt = bef.copy()
             bt.append(cur)
-            context = bt
-            if len(context) > 3:
-                context = context[-3:]
-            while len(context) < 3:
-                context = ["0"] + context
-            con = np.array(context)
+            con = np.array(bt)
             training_seq.append((usr, ckt, con, aft))
 
     with open(filepath + dataset + '_' + file_type+ '_' + str(ts) + '.txt', 'w') as opt:
@@ -1645,12 +1640,7 @@ def save_tune_or_test(filepath, dataset, ts, file_type, tr_list, te_list, alluse
             bef, cur, aft, ckt = item
             bt = bef.copy()
             bt.append(cur)
-            context = bt
-            if len(context) > 3:
-                context = context[-3:]
-            while len(context) < 3:
-                context = ["0"] + context
-            con = np.array(context)
+            con = np.array(bt)
             training_seq.append((usr, ckt, con, aft))
 
     with open(filepath + dataset + '_' + file_type+ '_' + str(ts) + '.txt', 'w') as opt:

@@ -323,12 +323,3 @@ class Word2Vec():
         self.word_mapper = np.load(self.hparas.embedding_path + 'word_mapper.npy').item()
         self.user_mapper = np.load(self.hparas.embedding_path + 'user_mapper.npy').item()
 
-    def get_embedding_matrix(self):
-        word_mat = np.zeros([len(self.word_dict), self.hparas.embedding_dim])
-        user_mat = np.zeros([len(self.user_dict), self.hparas.embedding_dim])
-        for k,v in self.word_dict.items():
-            word_mat[ self.word_mapper[k]] = v
-        for k,v in self.user_dict.items():
-            user_mat[ self.user_mapper[k]] = v
-        return word_mat, user_mat
-

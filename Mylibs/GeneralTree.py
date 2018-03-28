@@ -11,7 +11,7 @@ from operator import itemgetter
 def get_default_hparas():
     class hparas():
         pass
-    hparas.embedding_path = "./embedding/"
+    hparas.embedding_path = "../embedding/"
     hparas.successive_time_constrain = 6
     hparas.precision = 20
     hparas.top_N = 10
@@ -170,7 +170,7 @@ class GeneralTree():
             self.dist_matrix[k] = v
 
         # normalize dist matrix
-        temp_mat = self.dist_matrix / abs(float(self.dist_matrix.max()))
+        temp_mat = self.dist_matrix / (abs(self.dist_matrix)).max()
         self.dist_matrix = temp_mat
         self.display_dist_matrix()
 
@@ -440,7 +440,7 @@ class GeneralTree():
             return -1 * norm(v1-v2)
             #sqrt(sum(pow(a-b, 2) for a,b in zip(v1, v2)))
         elif fun == "jaccard":
-            return np.sum(np.minimum.reduce([v1.v2])) / np.sum(np.maximum.reduce([v1.v2]))
+            return np.sum(np.minimum.reduce([v1,v2])) / np.sum(np.maximum.reduce([v1,v2]))
             """
             q = r = s = 0
             for i in range(0, len(v1)):
