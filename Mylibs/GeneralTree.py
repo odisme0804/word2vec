@@ -170,7 +170,7 @@ class GeneralTree():
             self.dist_matrix[k] = v
 
         # normalize dist matrix
-        temp_mat = self.dist_matrix / (abs(self.dist_matrix)).max()
+        temp_mat = self.dist_matrix / float((abs(self.dist_matrix)).max())
         self.dist_matrix = temp_mat
         self.display_dist_matrix()
 
