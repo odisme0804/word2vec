@@ -8,6 +8,7 @@ import time
 from sklearn import preprocessing
 from collections import OrderedDict
 import multiprocessing as mpc
+import os
 
 class Word2Vec():
     def __init__(self, hparas=None):
@@ -312,6 +313,8 @@ class Word2Vec():
         return scores[:K]
 
     def save_embedding(self):
+        if not os.path.exists(self.hparas.embedding_path):
+            os.makedirs(self.hparas.embedding_path)
         np.save(self.hparas.embedding_path + 'word_vector.npy', self.word_dict)
         np.save(self.hparas.embedding_path + 'user_vector.npy', self.user_dict)
         np.save(self.hparas.embedding_path + 'word_mapper.npy', self.word_mapper)

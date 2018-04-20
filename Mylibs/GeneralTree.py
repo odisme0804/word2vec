@@ -26,6 +26,7 @@ def get_default_hparas():
     hparas.decay = 1
     hparas.inverse = 1
     hparas.merge_bound = 0.8
+    hparas.merge_round = 10
     # for simularity
     hparas.max_process = 10
     hparas.simu_metric = "max" # [min, max, avg]
@@ -171,7 +172,8 @@ class GeneralTree():
 
         # normalize dist matrix
         temp_mat = self.dist_matrix / float((abs(self.dist_matrix)).max())
-        self.dist_matrix = temp_mat
+        temp_mat = temp_mat * pow(10, self.hparas.merge_round)
+        self.dist_matrix = np.rint(temp_mat)
         self.display_dist_matrix()
 
     def word_simus(self, i, total, fun, return_dict):
@@ -440,7 +442,9 @@ class GeneralTree():
             return -1 * norm(v1-v2)
             #sqrt(sum(pow(a-b, 2) for a,b in zip(v1, v2)))
         elif fun == "jaccard":
-            return np.sum(np.minimum.reduce([v1,v2])) / np.sum(np.maximum.reduce([v1,v2]))
+            tot = np.sum(np.maximum.reduce([v1,v2]))
+            return np.sum(np.minimum.reduce([v1,v2])) / tot if tot > 0 else 0
+
             """
             q = r = s = 0
             for i in range(0, len(v1)):
