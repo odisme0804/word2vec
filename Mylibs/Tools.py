@@ -1570,6 +1570,87 @@ def save_training_sequence(filepath, dataset, ts, file_type, data_list):
             opt.write("\n")
     return training_seq
 
+def save_training_sequence_with_time(filepath, dataset, ts, file_type, data_list):
+
+    nosuccessive_dict = {}
+    successive_dict = {}
+    user_record = listtodict(data_list, 0)
+    for u in user_record.keys():
+
+        if len(user_record[u]) == 1:
+            if u not in nosuccessive_dict:
+                nosuccessive_dict[u] = []
+            (p1, d1, t1) = user_record[u][0]
+            nosuccessive_dict[u].append(([],p1,[]))
+
+
+        if len(user_record[u]) > 1:
+            for q in range(len(user_record[u])):
+                (p1, d1, t1) = user_record[u][q]
+
+                j = q+1
+                after = []
+
+                for k in range(j, len(user_record[u])):
+                    (p2, d2, t2) = user_record[u][k]
+                    if abs(timediff(d1, t1, d2, t2)) / float(3600) <= ts:
+                        after.append(p2)
+                    else:
+                        break
+
+                j = q
+                before = []
+                time_l = []
+                for k in range(j-1, -1, -1):
+                    (p0, d0, t0) = user_record[u][k]
+                    if abs(timediff(d0, t0, d1, t1)) / float(3600) <= ts:
+                        before.insert(0, p0)
+                        cktime = d0+"_"+t0
+                        time_l.insert(0, cktime)
+                    else:
+                        break
+
+                """
+                for k in range(0, j):
+                    (p0, d0, t0) = user_record[u][k]
+                    if abs(timediff(d0, t0, d1, t1)) / float(3600) <= ts:
+                        before.append(p0)
+                    else:
+                        continue
+                """
+
+                if len(after) == 0:  # no future
+                    if u not in nosuccessive_dict:
+                        nosuccessive_dict[u] = []
+                    nosuccessive_dict[u].append((before,p1,after))
+                else:
+                    if u not in successive_dict:
+                        successive_dict[u] = []
+                    cktime = d1+"_"+t1
+                    time_l.append(cktime)
+                    successive_dict[u].append((before,p1,after,time_l))
+
+    training_seq = []
+    for usr in successive_dict:
+        for item in successive_dict[usr]:
+            bef, cur, aft, ckt = item
+            bt = bef.copy()
+            bt.append(cur)
+            con = np.array(bt)
+            training_seq.append((usr, ckt, con, aft))
+
+    with open(filepath + dataset + '_' + file_type+ '_' + str(ts) + '.txt', 'w') as opt:
+        for usr, ckt, con, fut in training_seq:
+            opt.write(usr)
+            opt.write("\t")
+            opt.write(' '.join(con))
+            opt.write("\t")
+            opt.write(' '.join(ckt))
+            opt.write("\t")
+            opt.write(' '.join(fut))
+            opt.write("\n")
+    return training_seq
+
 def save_tune_or_test(filepath, dataset, ts, file_type, tr_list, te_list, alluser_checked_freq):
     user_visit = {}
     for user in list(alluser_checked_freq.keys()):
@@ -1650,6 +1731,94 @@ def save_tune_or_test(filepath, dataset, ts, file_type, tr_list, te_list, alluse
             opt.write(' '.join(con))
             opt.write("\t")
             opt.write(ckt.strftime("%Y-%m-%d %H:%M:%S"))
+            opt.write("\t")
+            opt.write(' '.join(fut))
+            opt.write("\n")
+    return training_seq
+
+def save_tune_or_test_with_time(filepath, dataset, ts, file_type, tr_list, te_list, alluser_checked_freq):
+    user_visit = {}
+    for user in list(alluser_checked_freq.keys()):
+        user_visit[user] = set()
+    for uid, lid, _, _ in tr_list:
+        user_visit[uid].add(lid)
+
+    nosuccessive_dict = {}
+    successive_dict = {}
+    user_record = listtodict(te_list, 0)
+    for u in user_record.keys():
+
+        if len(user_record[u]) == 1:
+            if u not in nosuccessive_dict:
+                nosuccessive_dict[u] = []
+            (p1, d1, t1) = user_record[u][0]
+            nosuccessive_dict[u].append(([],p1,[]))
+
+
+        if len(user_record[u]) > 1:
+            for q in range(len(user_record[u])):
+                (p1, d1, t1) = user_record[u][q]
+
+                j = q+1
+                after = []
+
+                for k in range(j, len(user_record[u])):
+                    (p2, d2, t2) = user_record[u][k]
+                    if abs(timediff(d1, t1, d2, t2)) / float(3600) <= ts:
+                        after.append(p2)
+                    else:
+                        break
+
+                j = q
+                before = []
+                time_l = []
+                for k in range(j-1, -1, -1):
+                    (p0, d0, t0) = user_record[u][k]
+                    if abs(timediff(d0, t0, d1, t1)) / float(3600) <= ts:
+                        before.insert(0, p0)
+                        cktime = d0+"_"+t0
+                        time_l.insert(0, cktime)
+                    else:
+                        break
+                """
+                for k in range(0, j):
+                    (p0, d0, t0) = user_record[u][k]
+                    if abs(timediff(d0, t0, d1, t1)) / float(3600) <= ts:
+                        before.append(p0)
+                    else:
+                        continue
+                """
+
+                if len(after) == 0:  # no future
+                    if u not in nosuccessive_dict:
+                        nosuccessive_dict[u] = []
+                    nosuccessive_dict[u].append((before,p1,after))
+                else:
+                    gd = set(after) - set(user_visit[u])
+                    if len(gd) == 0:
+                        continue
+                    if u not in successive_dict:
+                        successive_dict[u] = []
+                    cktime = d1+"_"+t1
+                    time_l.append(cktime)
+                    successive_dict[u].append((before,p1,list(gd),time_l))
+
+    training_seq = []
+    for usr in successive_dict:
+        for item in successive_dict[usr]:
+            bef, cur, aft, ckt = item
+            bt = bef.copy()
+            bt.append(cur)
+            con = np.array(bt)
+            training_seq.append((usr, ckt, con, aft))
+
+    with open(filepath + dataset + '_' + file_type+ '_' + str(ts) + '.txt', 'w') as opt:
+        for usr, ckt, con, fut in training_seq:
+            opt.write(usr)
+            opt.write("\t")
+            opt.write(' '.join(con))
+            opt.write("\t")
+            opt.write(' '.join(ckt))
             opt.write("\t")
             opt.write(' '.join(fut))
             opt.write("\n")

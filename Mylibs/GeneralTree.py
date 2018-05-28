@@ -19,16 +19,17 @@ def get_default_hparas():
     hparas.learn_rate = 0.005
     hparas.max_iter = 10
     hparas.epsilon = 0.0001
-    hparas.window_size = 3
+    hparas.window_size = 1
     hparas.seq_length = 3
     hparas.tree_type = "huffman"
     hparas.model = "cbow"
     hparas.decay = 1
     hparas.inverse = 1
     hparas.merge_bound = 0.8
-    hparas.merge_round = 10
+    hparas.merge_round = 12
+    hparas.check_bound = 0
     # for simularity
-    hparas.max_process = 10
+    hparas.max_process = 20
     hparas.simu_metric = "max" # [min, max, avg]
     hparas.simu_func = "cos" # [cos, jaccard]
 
@@ -90,7 +91,7 @@ class GeneralTree():
     def cal_distance_matrix(self, user_item_matrix):
         # initial user-item-matrix
         ui_vector = np.zeros(shape=[len(self.word_mapper), len(self.user_mapper)])
-        
+        print("ui_shape", ui_vector.shape)
         # mark user who visited
         for user in user_item_matrix:
             for word, count in user_item_matrix[user].items():
@@ -98,6 +99,14 @@ class GeneralTree():
                     wid = self.word_mapper[word]
                     uid = self.user_mapper[user]
                     ui_vector[wid][uid] = 1
+
+        b = np.sum(ui_vector, axis=0)
+        print("# of zero in b", np.count_nonzero(b==0))
+        c = np.where(b >= self.hparas.check_bound, 1, 0)
+        print("# of zero in c", np.count_nonzero(c==0))
+        for k,v in enumerate(c):
+            if v == 0:
+                ui_vector.T[k] = v
 
         self.ui_vector = ui_vector
 
@@ -154,7 +163,8 @@ class GeneralTree():
         for i,x in enumerate(jobs):
             distbar.update(i+1)
             x.join()
-
+            for idx in range( len(self.word_mapper) * i//self.hparas.max_process, len(self.word_mapper)*(i+1)//self.hparas.max_process):
+                self.dist_matrix[idx] = return_dict[idx]
         distbar.finish()
         """       
         for result, word1 in zip(results, word_list):
@@ -165,16 +175,22 @@ class GeneralTree():
         #for i, result in enumerate(return_dict.values()):
         #    for j, val in enumerate(result):
         #        self.dist_matrix[i][j] = val
-        
-        for k,v in return_dict.items():
+        #print('load result from socket') 
+        #for k,v in return_dict.items():
             #print(k,v)
-            self.dist_matrix[k] = v
-
+        #    self.dist_matrix[k] = v
+        print('load fin')
         # normalize dist matrix
         temp_mat = self.dist_matrix / float((abs(self.dist_matrix)).max())
-        temp_mat = temp_mat * pow(10, self.hparas.merge_round)
-        self.dist_matrix = np.rint(temp_mat)
-        self.display_dist_matrix()
+        if self.hparas.simu_func == "mht":
+            temp_mat += 1
+        if self.hparas.simu_func == "euc":
+            temp_mat += 1
+        #temp_mat = np.ceil( (temp_mat - pow(10, -10)) * pow(10, self.hparas.merge_round) ) / float(pow(10, self.hparas.merge_round))
+        temp_mat = np.ceil( (temp_mat) * pow(10, self.hparas.merge_round) ) / float(pow(10, self.hparas.merge_round))
+        self.dist_matrix = temp_mat
+        print('update fin')
+        #self.display_dist_matrix()
 
     def word_simus(self, i, total, fun, return_dict):
         for idx in range( len(self.word_mapper) * i//total, len(self.word_mapper)*(i+1)//total):
@@ -192,6 +208,9 @@ class GeneralTree():
                 dist_node_pair.append( [self.dist_matrix[i][j], i, j] )
         #dist_node_pair.sort(key=itemgetter(0), reverse=True)
         dist_node_pair.sort(key=lambda tup: (-tup[0],tup[1],tup[2]))
+        node_dict = {}
+        for node in node_list:
+            node_dict[node.set_key] = node
 
         merge_pair = []
         for idx, val in enumerate(dist_node_pair):
@@ -227,7 +246,22 @@ class GeneralTree():
             if d != last_sim or (idx == len(merge_pair) - 1) or (i not in nodes and j not in nodes):
                 if d == last_sim and idx == len(merge_pair) - 1:
                     nodes.add(i)
-                    nodes.add(j) 
+                    nodes.add(j)
+
+                # huffman merge
+                n_list = [(x, node_dict[x].freq) for x in list(nodes)]
+                while len(n_list) > 1:
+                    n_list.sort(key=lambda tup: (tup[1],tup[0]))
+                    a, b = n_list[0:2]
+                    n_list = n_list[2:]
+                    new_tup = (min(a[0], b[0]), a[1]+b[1])
+                    r, s = a[0], b[0]
+                    if r > s:
+                        r,s = s,r
+                    modify_pair.append((r, s, last_sim))
+                    n_list.append(new_tup)
+                    
+                """ 
                 n_list = list(nodes)
                 n_list.sort()
                 if len(n_list) == 2:
@@ -243,7 +277,7 @@ class GeneralTree():
                         modify_pair.append((r, s, last_sim))
                         n_list = n_list[2:]
                         n_list.append(min(r,s)) 
-
+                """
                 # clean for next
 
                 if d != last_sim and (idx == len(merge_pair) - 1):
@@ -270,9 +304,6 @@ class GeneralTree():
                 #print(d,i,j)
         
  
-        node_dict = {}
-        for node in node_list:
-            node_dict[node.set_key] = node
         
         print("build tree ... ")
 
@@ -435,6 +466,8 @@ class GeneralTree():
     def cal_sim_test(self, v1, v2, fun):
         if fun == "cos":
             return (np.inner(v1,v2)/(norm(v1)*norm(v2))) if norm(v1)*norm(v2) > 0 else 0
+        elif fun == "inv_cos":
+            return -1 * np.sum(np.absolute(v1 - v2))/(norm(v1)*norm(v2)) if norm(v1)*norm(v2) > 0 else -1
         elif fun == "mht":
             return -1 * np.sum(np.absolute(v1 - v2))
             #sum(abs(a-b) for a,b in zip(v1, v2))
